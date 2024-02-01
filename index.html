@@ -1,0 +1,264 @@
+---
+layout: page
+title: Cryptages 🔐
+---
+
+<!--<script src="{{ '/assets/skulpt.min.js' | relative_url }}"></script>
+<script src="{{ '/assets/skulpt-stdlib.js' | relative_url }}"></script>-->
+
+<script>
+
+const registerServiceWorker = async () => {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('sw.js', { scope: './' });
+    } catch (error) {
+      console.error(`Registration failed with ${error}`);
+    }
+  }
+};
+registerServiceWorker();
+
+function rot13(message) {
+    return cesar(message, 13);
+}
+
+function cesar(message, cle) {
+    cle = parseInt(cle);
+    cle %= 26;
+    if (cle < 0) cle += 26;
+    if (isNaN(cle)) {
+        throw new TypeError('La clé doit être un entier');
+    }
+    let message_crypte = "";
+
+    for (let caractere of message) {
+        if (/[a-z]/.test(caractere)) {
+            let index_caractere = caractere.charCodeAt(0) - 'a'.charCodeAt(0);
+            let nouveau_caractere = String.fromCharCode((index_caractere + cle) % 26 + 'a'.charCodeAt(0));
+            message_crypte += nouveau_caractere;
+        } else if (/[A-Z]/.test(caractere)) {
+            let index_caractere = caractere.charCodeAt(0) - 'A'.charCodeAt(0);
+            let nouveau_caractere = String.fromCharCode((index_caractere + cle) % 26 + 'A'.charCodeAt(0));
+            message_crypte += nouveau_caractere;
+        } else {
+            message_crypte += caractere;
+        }
+    }
+
+    return message_crypte;
+}
+
+function cesar_decode(message, cle) {
+    cle = parseInt(cle);
+    return cesar(message, (((-cle) % 26)+26)%26);
+}
+
+function code_vigenere(message, cle) {
+    cle = cle.toLowerCase();
+
+    if (!/^[a-z]+$/.test(cle)) {
+        throw new TypeError("Clé invalide : la clé doit être composée de lettres minuscules");
+    }
+
+    let message_crypte = "";
+    let index_cle = 0;
+
+    for (let i = 0; i < message.length; i++) {
+        let char_cle = cle.charAt(index_cle % cle.length);
+        let decal = char_cle.charCodeAt(0) - 'a'.charCodeAt(0);
+
+        let caractere = message.charAt(i);
+
+        if (/[a-z]/.test(caractere)) {
+            let index_caractere = caractere.charCodeAt(0) - 'a'.charCodeAt(0);
+            let nouveau_caractere = String.fromCharCode((index_caractere + decal) % 26 + 'a'.charCodeAt(0));
+            message_crypte += nouveau_caractere;
+            index_cle++;
+        } else if (/[A-Z]/.test(caractere)) {
+            let index_caractere = caractere.charCodeAt(0) - 'A'.charCodeAt(0);
+            let nouveau_caractere = String.fromCharCode((index_caractere + decal) % 26 + 'A'.charCodeAt(0));
+            message_crypte += nouveau_caractere;
+            index_cle++;
+        } else {
+            message_crypte += caractere;
+        }
+    }
+
+    return message_crypte;
+}
+
+function code_vigenere_decode(message, cle) {
+    cle = cle.toLowerCase();
+
+    if (!/^[a-z]+$/.test(cle)) {
+        throw new TypeError("Clé invalide : la clé doit être composée de lettres minuscules");
+    }
+
+    return code_vigenere(message, cle.split('').map(i => String.fromCharCode('z'.charCodeAt(0) - (i.charCodeAt(0) - 'a'.charCodeAt(0) + 26 - 1) % 26)).join(''));
+}
+
+function code_polybe(message, cle) {
+    cle = parseInt(cle) % 25;
+    let message_code = "";
+    let table = 'abcdefghijklmnopqrstuvwxyz';
+    table = table.substring(cle) + table.substring(0, cle);
+    table = table.replace('j', '');
+
+    for (let caractere of message.toLowerCase().replace('j', 'i')) {
+        if (table.includes(caractere)) {
+            let index = table.indexOf(caractere);
+            message_code += `${Math.floor(index / 5) + 1}${(index % 5) + 1}`;
+        }
+    }
+
+    return message_code;
+}
+
+function code_polybe_decode(message, cle) {
+    cle = parseInt(cle) % 25;
+    let message_decode = "";
+    let table = 'abcdefghijklmnopqrstuvwxyz';
+    table = table.substring(cle) + table.substring(0, cle);
+    table = table.replace('j', '');
+
+    for (let i = 0; i < message.length; i += 2) {
+        let char = message.substring(i, i + 2);
+        message_decode += table[(parseInt(char[0]) - 1) * 5 + parseInt(char[1]) - 1];
+    }
+
+    return message_decode;
+}
+
+function code_polybe_variante(message, cle) {
+    cle = parseInt(cle) % 36;
+    let message_code = "";
+    let table = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    table = table.substring(cle) + table.substring(0, cle);
+
+    for (let caractere of message.toLowerCase()) {
+        if (table.includes(caractere)) {
+            let index = table.indexOf(caractere);
+            message_code += `${Math.floor(index / 6) + 1}${(index % 6) + 1}`;
+        }
+    }
+
+    return message_code;
+}
+
+function code_polybe_variante_decode(message, cle) {
+    cle = parseInt(cle) % 36;
+    let message_decode = "";
+    let table = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    table = table.substring(cle) + table.substring(0, cle);
+
+    for (let i = 0; i < message.length; i += 2) {
+        let char = message.substring(i, i + 2);
+        message_decode += table[(parseInt(char[0]) - 1) * 6 + parseInt(char[1]) - 1];
+    }
+
+    return message_decode;
+}
+
+
+addEventListener('load', function() {
+    on_algo_changed();
+    /*Sk.configure({
+        __future__: Sk.python3
+    });
+    let xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+        window.py_module = eval(Sk.compile(xhr.responseText).code)(); // on charge le code Python
+        document.getElementById('span_chargement').outerHTML = ""; // on supprime le "Chargement..."
+    };
+    xhr.open("get", "{{ '/assets/CODE.py' | relative_url }}");
+    xhr.send();*/
+});
+function run() {
+    const fonctions = {
+        rot13: [rot13, rot13],
+        cesar: [cesar, cesar_decode],
+        vigenere: [code_vigenere, code_vigenere_decode],
+        polybe: [code_polybe, code_polybe_decode],
+        polybe_variante: [code_polybe_variante, code_polybe_variante_decode],
+    };
+    let algo = document.getElementById('algo').value;
+    let mode = document.querySelector('[value=decode]').checked;
+    let fonction = fonctions[algo][mode ? 1 : 0];
+    let result;
+    try {
+        if (algo == 'rot13') {
+            result = fonction(document.getElementById('message').value);
+        } else {
+            result = fonction(document.getElementById('message').value, document.getElementById('cle').value);
+        }
+    } catch (err) {
+        alert(`Impossible de ${mode ? 'dé' : ''}crypter ce message : ${err.message}`);
+        return;
+    }
+    document.getElementById('result').textContent = result;
+}
+function on_algo_changed() {
+    document.getElementById('label_cle').style.display = (document.getElementById('algo').value == 'rot13' ? 'none' : 'initial')
+}
+</script>
+
+<style>
+label {
+    display: block;
+}
+select, input:not([type=radio]), textarea {
+    display: block;
+    width: 100%;
+}
+pre {
+    word-break: break-all; /* faire un retour à la ligne automatique */
+    white-space: pre-wrap;
+}
+</style>
+
+<noscript><span style="color: red">Le javascript est requis pour cette page.</span></noscript>
+
+<!--<span id="span_chargement" style="color: green">Chargement...</span>-->
+
+<div>
+
+<label>
+Algorithme :
+<select id="algo" name="algo" onchange="on_algo_changed()">
+<option value="rot13">ROT13</option>
+<option value="cesar">César</option>
+<option value="vigenere">Vigenère</option>
+<option value="polybe">Polybe</option>
+<option value="polybe_variante">Polybe (variante)</option>
+</select>
+</label>
+<br/>
+
+Mode :<br/>
+<label style="display: inline"><input type="radio" id="mode" name="mode" value="encode" checked> Crypter</label>
+<label style="display: inline"><input type="radio" id="mode" name="mode" value="decode"> Décrypter</label>
+<br/>
+<br/>
+
+<label id="label_cle">
+Clé :
+<input type="text" id="cle" name="cle" value="1" oninput="">
+<br/>
+</label>
+
+<label>
+Message :
+<textarea id="message" name="message"></textarea>
+</label>
+<br/>
+
+<button id="buttonRun" onclick="run();">Exécuter !</button>
+</div>
+
+<br/>
+
+<h3>Résultat</h3>
+<pre id="result">
+Cliquez sur Exécuter pour voir le résultat.
+</pre>

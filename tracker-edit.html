@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <title>Exercise Tracker Editor</title>
+    <style>
+        body {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .container {
+            background-color: #454d55;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .exercise-button {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* Dark modal style */
+        .modal-content {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid #454d55;
+        }
+
+        .modal-title {
+            color: #ffffff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid #454d55;
+        }
+
+        .form-label {
+            color: #ffffff;
+        }
+
+        .form-control {
+            background-color: #454d55;
+            color: #ffffff;
+        }
+
+        .btn-primary-modal {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary-modal:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        #edit-area {
+            margin: 2px;
+            background-color: #454d55;
+            border: none;
+            display: block;
+            width: calc(100vw - 6px);
+            height: calc(100vh - 50px);
+            color: white;
+            font-family: monospace;
+        }
+    </style>
+    <script>
+        function download(filename, text) {
+            var element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        }
+        function download_copy() {
+            let text = localStorage['t_categories'+SUFFIX] || '';
+            let improved = text.split('\n').map(line => {
+                if (line.trim().length != 0 && !line.startsWith('# ')) {
+                    let split = line.split(" ");
+                    split[0] += ':' + (localStorage["t_state"+split[0]+SUFFIX] || 0);
+                    return split.join(' ');
+                } else return line;
+            }).join('\n');
+            let d = new Date;
+            let date_str = d.getFullYear() + "-" + (d.getMonth()+1).toString().padStart(2, "0") + "-" + d.getDate() + "_" + d.getHours() + "-" + d.getMinutes();
+            download('ex-tracker' + (!SUFFIX ? "" : "-"+SUFFIX) + '_' + date_str + '.txt', improved);
+        }
+        window.SUFFIX = location.search.replace('?', '');
+        addEventListener('load', () => {
+            document.getElementById('edit-area').value = (localStorage["t_categories"+SUFFIX] || "");
+            document.getElementById('go-tracker').href = "tracker" + location.search;
+            // todo : afficher warning avant de fermer
+            // onbeforeunload si pas enregistré
+            if (SUFFIX) document.title += " : " + SUFFIX;
+        });
+        function save_changes() {
+            let newtext = document.getElementById('edit-area').value;
+            localStorage['t_categories'+SUFFIX] = newtext;
+            document.getElementById('btn-save').disabled = true;
+            window.onbeforeunload = null;
+        }
+    </script>
+</head>
+<body style="text-align: center">
+<button id="btn-save" class="btn btn-success" disabled onclick="save_changes()">Save</button>
+<button class="btn btn-primary" onclick="download_copy()">Download</button>
+<!--<button class="btn btn-danger" onclick="if (confirm('This action will overwrite current list. Proceed ?')) ;">Import</button>-->
+<a id="go-tracker" class="btn btn-warning" href="#">Go to tracker</a>
+
+<textarea id="edit-area" oninput="document.getElementById('btn-save').disabled = false; window.onbeforeunload = function() { return ''; }"></textarea>
+<!--<div class="container mt-4">
+    <h1>Exercise Tracker Editor</h1>
+</div>-->
+
+
+</body>
+</html>

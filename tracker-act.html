@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <title>Exercise Tracker Activity</title>
+    <style>
+        body {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .container {
+            background-color: #454d55;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .exercise-button {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* Dark modal style */
+        .modal-content {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid #454d55;
+        }
+
+        .modal-title {
+            color: #ffffff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid #454d55;
+        }
+
+        .form-label {
+            color: #ffffff;
+        }
+
+        .form-control {
+            background-color: #454d55;
+            color: #ffffff;
+        }
+
+        .btn-primary-modal {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary-modal:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        #edit-area {
+            margin: 2px;
+            background-color: #454d55;
+            border: none;
+            display: block;
+            width: 98%;
+            height: calc(100vh - 50px);
+            color: white;
+            font-family: monospace;
+        }
+    </style>
+    <script src="tracker-app.js"></script>
+    <script>
+        let activity = (localStorage.t_activity || "").trim().split('\n');
+        activity.reverse();
+        if (activity.length == 1 && activity[0] == "") activity = [];
+        let suffixes = Object.keys(localStorage).filter(u => u.startsWith("t_categories")).map(u => u.slice("t_categories".length));
+        let reverse_name = {};
+        for (let suffix of suffixes) {
+            window.SUFFIX = suffix;
+            let categories = get_categories();
+            for (let cat of categories) {
+                for (let ex of cat.exercises) {
+                    if (ex != null) {
+                        reverse_name[[suffix, ex[0]]] = cat.name + " > " + ex[1];
+                    }
+                }
+            }
+        }
+
+        addEventListener('load', function() {
+            let div = document.querySelector('div.container');
+            for (let line of activity) {
+                let [suffix, time, id, state] = line.split(' ');
+                let el = document.createElement('div');
+                let b = document.createElement('b');
+                b.textContent = suffix;
+                el.append(b);
+                el.append(" ");
+
+                let d = new Date(+time);
+                let span = document.createElement("span");
+                span.textContent = d.getDate().toString().padStart(2, "0") + "/" + (1+d.getMonth()).toString().padStart(2, "0");
+                span.title = d.toString();
+                el.append(span);
+
+                el.append(" ");
+
+                span = document.createElement("span");
+                span.textContent = reverse_name[[suffix, id]] + " ";
+                span.textContent += (!+state ? "not completed" : (1 == +state ? "completed" : "to review"));
+                span.classList += STATUSES[state].replace('btn', 'text');
+                el.append(span);
+
+
+                div.append(el);
+            }
+        });
+    </script>
+</head>
+<body>
+<div class="container">
+<h1>History <a style="text-decoration: none" href="tracker-list.html">📂</a></h1>
+<button class="btn btn-danger" onclick="if (confirm('Clear history ?')) { localStorage.removeItem('t_activity'); location.reload(); }">Clear history</button>
+</div>
+</body>
+</html>

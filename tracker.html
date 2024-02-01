@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">-->
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <title>Exercise Tracker</title>
+    <script src="tracker-app.js"></script>
+    <style>
+        body {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .container {
+            background-color: #454d55;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+
+        .exercise-button {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* Dark modal style */
+        .modal-content {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid #454d55;
+        }
+
+        .modal-title {
+            color: #ffffff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid #454d55;
+        }
+
+        .form-label {
+            color: #ffffff;
+        }
+
+        .form-control {
+            background-color: #454d55;
+            color: #ffffff;
+        }
+
+        .btn-primary-modal {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-primary-modal:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mt-4">
+    <h1>Exercise Tracker</h1>
+
+    <!-- Add Section Button -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#sectionModal">Add Section</button>
+
+    <a id="btn-edit" class="btn btn-secondary mb-3" href="#">Edit</a>
+
+    <p id="div-stats">
+        <b class="text-danger">0</b> items marked as <b class="text-danger" style="color:red !important">not completed</b><br/>
+        <b class="text-info">0</b> items marked for <b class="text-info">review</b><br/>
+        <b class="text-success" style="color:#00C100 !important">0</b> items marked as <b class="text-success" style="color:#00C100 !important">completed</b>
+    </p>
+
+    <!-- Sections Container -->
+    <div id="sectionsContainer"></div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="sectionModal" tabindex="-1" aria-labelledby="sectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sectionModalLabel">Add Section</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="sectionForm">
+                        <div class="mb-3">
+                            <label for="sectionName" class="form-label">Section Name</label>
+                            <input type="text" class="form-control" id="sectionName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="exerciseCount" class="form-label">Number of Exercises</label>
+                            <input type="number" class="form-control" id="exerciseCount" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-primary-modal">Add Section</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
+        integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"
+        integrity="sha384-fbbOQedDUMZZ5KreZpsbe1LCZPVmfTnH7ois6mU1QK+m14rQ1l2bGBq41eYeM/fS"
+        crossorigin="anonymous"></script>-->
+<script src="js-cdn.js"></script>
+
+<script>
+    function save_categories() {
+        let str = "";
+        for (let category of categories) {
+            str += "# " + category.name + "\n";
+            for (let ex of category.exercises) {
+                str += ex[0] + " " + ex[1] + "\n";
+            }
+        }
+        localStorage["t_categories"+SUFFIX] = str;
+    }
+    function get_state(ex_id) {
+        return parseInt(localStorage["t_state"+ex_id+SUFFIX]) || 0;
+    }
+    function set_state(ex_id, state) {
+        if (state != 0) {
+            localStorage["t_state"+ex_id+SUFFIX] = state;
+        } else {
+            localStorage.removeItem("t_state"+ex_id+SUFFIX);
+        }
+    }
+
+    let categories = get_categories();
+    let stats = [0, 0, 0];
+
+    // Load data from localStorage on page load
+    addEventListener('load', function () {
+        window.sectionModal = new bootstrap.Modal(document.getElementById("sectionModal"));
+        loadSections();
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+	    let h1 = document.body.querySelector('h1');
+	    let name = window.SUFFIX ? /*Array.from(window.SUFFIX).map((u, i) => i ? u : u.toUpperCase()).join("")*/decodeURI(SUFFIX) : 'main';
+	    h1.textContent += ' (' + name + " ";
+        let a = document.createElement('a');
+        a.textContent = '📂';
+        a.href = "tracker-list.html";
+        a.style.textDecoration = "none";
+        h1.append(a);
+        h1.append(')');
+        if (window.SUFFIX) {
+            document.title += " : " + name;
+        }
+        document.getElementById("btn-edit").href = "tracker-edit" + location.search;
+    });
+
+    addEventListener('storage', function (event) {
+        if (event.key.startsWith("t_state") && event.key.endsWith(window.SUFFIX)) {
+            let id = event.key.substring(0, event.key.length-window.SUFFIX.length).substring("t_state".length);
+            for (let but of document.getElementsByClassName('t_ex-'+id)) {
+                let current = Array.from(but.classList).filter(u => u.startsWith("btn-"))[0];
+                if (current !== undefined) but.classList.remove(current);
+                stats[+event.oldValue]--;
+                stats[+event.newValue]++;
+                but.classList.add(STATUSES[+event.newValue]);
+            }
+            updateDivStats();
+        }
+        if (event.key == "t_categories" + SUFFIX) {
+            categories = get_categories();
+            loadSections();
+        }
+    });
+
+    document.getElementById("sectionForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+        addSection();
+
+        // Close the modal after adding a section
+        sectionModal.hide();
+    });
+
+    function addSection() {
+        let sectionName = document.getElementById("sectionName").value;
+        let exerciseCount = parseInt(document.getElementById("exerciseCount").value, 10);
+
+        let max_id = 0;
+        for (let c of categories) {
+            const tmp = c.exercises.reduce((a, b) => [Math.max(a[0], b[0])])[0];
+            if (isFinite(tmp)) {
+                max_id = Math.max(max_id, tmp);
+            }
+        }
+
+        let category = {name: sectionName, exercises: []};
+        for (let i = 1; i <= exerciseCount; i++) {
+            category.exercises.push([max_id + i, i.toString()]);
+        }
+        categories.push(category);
+        save_categories();
+
+        let sectionsContainer = document.getElementById("sectionsContainer");
+        sectionsContainer.appendChild(make_html_for_category(category));
+    }
+
+    function updateDivStats() {
+        document.querySelector('#div-stats > .text-danger').textContent = stats[0];
+        document.querySelector('#div-stats > .text-success').textContent = stats[1];
+        document.querySelector('#div-stats > .text-info').textContent = stats[2];
+    }
+
+    function make_html_for_category(category) {
+        let sectionContainer = document.createElement("div");
+        sectionContainer.className = "mb-4";
+
+        let sectionHeading = document.createElement("h2");
+        sectionHeading.textContent = category.name;
+        sectionContainer.appendChild(sectionHeading);
+
+        let exerciseRow = document.createElement("div");
+        exerciseRow.className = "d-flex flex-wrap"; // Flex container for wrapping buttons
+
+        for (let ex of category.exercises) {
+            if (ex == null) {
+                sectionContainer.appendChild(exerciseRow);
+                exerciseRow = document.createElement("div");
+                exerciseRow.className = "d-flex flex-wrap";
+                continue;
+            }
+            const id = ex[0];
+            const text = ex[1];
+            let button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn exercise-button";
+            button.textContent = text;
+
+            // Set initial button color based on local storage
+            //var buttonStatus = localStorage.getItem(getButtonKey(button)+SUFFIX);
+            let state = get_state(id);
+            button.classList.add(STATUSES[state]);
+            button.classList.add('t_ex-'+id);
+            stats[state]++;
+
+            if (ex[2] != null) {
+                let sup = document.createElement('sup');
+                sup.textContent = " •";
+                sup.style.opacity = "50%";
+                button.append(sup);
+                button.title = ex[2];
+                new bootstrap.Tooltip(button);
+            }
+
+            // Add click event listener to toggle button status
+            button.addEventListener("click", function (event) {
+                toggleButtonStatus(id, event.target);
+            });
+
+            exerciseRow.appendChild(button);
+        }
+
+        sectionContainer.appendChild(exerciseRow);
+        return sectionContainer;
+    }
+
+    function loadSections() {
+        // Load sections data from localStorage
+        // assume categories already loaded
+
+        let sectionsContainer = document.getElementById("sectionsContainer");
+        sectionsContainer.textContent = "";
+        stats = [0, 0, 0];
+
+        for (let category of categories) {
+            let sectionContainer = make_html_for_category(category);
+
+            sectionsContainer.appendChild(sectionContainer);
+        }
+
+        updateDivStats();
+    }
+
+    function toggleButtonStatus(id, button) {
+        // Toggle the status of the button and update localStorage
+        let current = Array.from(button.classList).filter(u => u.startsWith("btn-"))[0];
+        let idx = STATUSES.indexOf(current);
+        if (idx === -1) {
+            alert("Error : invalid state : " + current);
+            return;
+        }
+        let btns = document.getElementsByClassName('t_ex-'+id);
+        stats[idx] -= btns.length;
+        idx++;
+        idx %= STATUSES.length;
+        stats[idx] += btns.length;
+        updateDivStats();
+        for (let but of btns) {
+            but.classList.remove(current);
+            but.classList.add(STATUSES[idx]);
+        }
+        if (localStorage.t_activity === undefined) localStorage.t_activity = "";
+        localStorage.t_activity += "\n" + SUFFIX + " " + (new Date().getTime()) + " " + id + " " + idx;
+        set_state(id, idx);
+    }
+</script>
+
+</body>
+</html>

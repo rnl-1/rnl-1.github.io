@@ -1,0 +1,19 @@
+title: rn-l.github.io
+author: R L
+baseurl: ""
+#baseurl: "/rn-l.github.io"
+url: ""
+github_username:  rn-l
+
+theme: minima
+
+feed:
+  disable: true
+
+header_pages:
+  - index.html
+  - timer-form.md
+  - tracker-list.md
+  - export.md
+
+#permalink: pretty

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Cache-control" content="max-age=2592000, public">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<title>YouTube embed player</title>
+<script>
+function check_hash() {
+	if (/^#[a-zA-Z0-9\-_]{11}$/.test(location.hash)) {
+		const video_id = location.hash.substring(1);
+		document.body.textContent = "Loading...";
+		location.replace(`https://www.youtube-nocookie.com/embed/${video_id}`);
+		return true;
+	}
+	return false;
+}
+addEventListener('load', function() {
+	if (!check_hash()) {
+		addEventListener('hashchange', check_hash);
+
+		const link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css';
+		link.integrity = 'sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu';
+		link.crossOrigin = 'anonymous';
+		document.head.append(link);
+
+		document.body.classList.add('container');
+
+		const h1 = document.createElement('h1');
+		h1.textContent = 'YouTube embed player';
+		const form = document.createElement('form');
+		
+		const input = document.createElement('input');
+		input.placeholder = 'https://www.youtube.com/watch?v=ABCDEFGHIJK';
+		input.required = true;
+		input.classList.add('form-control');
+		const button = document.createElement('button');
+		button.textContent = 'Watch';
+		button.classList.add('btn', 'btn-primary');
+
+		form.addEventListener('submit', function(event) {
+			event.preventDefault();
+			let video_id;
+			let re;
+			if (re = input.value.match(/^https?:\/\/(www.)?youtube.com\/watch\?v=([a-zA-Z0-9\-_]{11})(&.*)?$/)) {
+				video_id = re[2];
+			} else if (re = input.value.match(/^https?:\/\/(www.)?youtube(-nocookie)?.com\/embed\/([a-zA-Z0-9\-_]{11})(\?.*)?$/)) {
+				video_id = re[3];
+			} else if (re = input.value.match(/^([a-zA-Z0-9\-_]{11})$/)) {
+				video_id = re[1];
+			} else {
+				alert('Invalid YouTube URL');
+				return;
+			}
+			location.replace(`https://www.youtube-nocookie.com/embed/${video_id}`);
+		});
+		document.body.append(h1);
+		document.body.append(form);
+		form.append(input);
+		form.append(document.createElement('br'));
+		form.append(button);
+		input.focus();
+	}
+});
+</script>
+</head>
+<body>
+<noscript>Javascript disabled</noscript>
+</body>
+</html>
