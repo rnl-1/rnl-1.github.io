@@ -1,8 +1,30 @@
 // https://github.com/mdn/dom-examples/blob/main/service-worker/simple-service-worker/sw.js
 
+const URLS = [
+  './timer',
+  './tracker',
+  './tracker-edit',
+  './tracker-act',
+  './tracker-app.js',
+  './export.html',
+  './timer-form.html',
+  './tracker-list.html',
+  './',
+  './bootstrap.min.css',
+  './js-cdn.js',
+  './assets/main.css',
+  './assets/minima-social-icons.svg',
+  './favicon.ico',
+  './404.html',
+  './sw.js',
+  './speedtest',
+];
+
 const addResourcesToCache = async (resources) => {
   const cache = await caches.open('v1');
+  console.log("Loading website...");
   await cache.addAll(resources);
+  console.log("Website loaded");
 };
 
 const putInCache = async (request, response) => {
@@ -10,14 +32,47 @@ const putInCache = async (request, response) => {
   await cache.put(request, response);
 };
 
-const cacheFirst = async ({ request, preloadResponsePromise, fallbackUrl }) => {
+const fetchAndReturn = async (request) => {
+  try {
+    const responseFromNetwork = await fetch(request);
+    putInCache(request, responseFromNetwork.clone());
+    return responseFromNetwork;
+  } catch (error) {
+    /*const fallbackResponse = await caches.match(fallbackUrl);
+    if (fallbackResponse) {
+      return fallbackResponse;
+    }*/
+    // when even the fallback response is not available,
+    // there is nothing we can do, but we must always
+    // return a Response object
+    return new Response('Network error happened', {
+      status: 408,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+};
+
+const cacheFirst = async ({ request, preloadResponsePromise }) => {
   // First try to get the resource from the cache
+  let rel_url = '.' + request.url.replace(self.location.toString().replace(/\/[^/]+$/, ''), '');
   const responseFromCache = await caches.match(request, { ignoreSearch: true });
+  //console.log(request.url);
+  //self.location.replace(/\/+$/, '')
   if (responseFromCache) {
+    console.log("Loading response from cache : " + request.url);
     return responseFromCache;
   }
-  const http404 = await caches.match(new Request('./404.html'), { ignoreSearch: true });
-  return http404;
+  if (URLS.indexOf(rel_url) !== -1) { // url exists but cached page has disappeared -> fetch again
+    console.log("Fetching response since not available in cache : " + request.url);
+    return fetchAndReturn(request);
+  } else {
+    const http404 = await caches.match(new Request('./404.html'), { ignoreSearch: true });
+    if (http404) {
+      return http404;
+    } else {
+      return fetchAndReturn(new Request('./404.html'));
+    }
+  }
 
   // Next try to use the preloaded response, if it's there
   /*const preloadResponse = await preloadResponsePromise;
@@ -63,24 +118,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    addResourcesToCache([
-      './timer',
-      './tracker',
-      './tracker-edit',
-      './tracker-act',
-      './tracker-app.js',
-      './export.html',
-      './timer-form.html',
-      './tracker-list.html',
-      './',
-      './bootstrap.min.css',
-      './js-cdn.js',
-      './assets/main.css',
-      './assets/minima-social-icons.svg',
-      './favicon.ico',
-      './404.html',
-      './sw.js',
-    ])
+    addResourcesToCache(URLS)
   );
 });
 

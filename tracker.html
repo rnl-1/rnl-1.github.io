@@ -223,6 +223,8 @@
         }
         categories.push(category);
         save_categories();
+        stats[0] += exerciseCount;
+        updateDivStats();
 
         let sectionsContainer = document.getElementById("sectionsContainer");
         sectionsContainer.appendChild(make_html_for_category(category));
