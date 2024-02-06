@@ -92,6 +92,8 @@
         <b class="text-danger">0</b> items marked as <b class="text-danger" style="color:red !important">not completed</b><br/>
         <b class="text-info">0</b> items marked for <b class="text-info">review</b><br/>
         <b class="text-success" style="color:#00C100 !important">0</b> items marked as <b class="text-success" style="color:#00C100 !important">completed</b>
+        <br/>
+        <b class="text-secondary">0</b> items marked as <b class="text-secondary">skipped</b>
     </p>
 
     <!-- Sections Container -->
@@ -154,7 +156,7 @@
     }
 
     let categories = get_categories();
-    let stats = [0, 0, 0];
+    let stats = Array(STATUSES.length).fill(0);
 
     // Load data from localStorage on page load
     addEventListener('load', function () {
@@ -231,9 +233,13 @@
     }
 
     function updateDivStats() {
-        document.querySelector('#div-stats > .text-danger').textContent = stats[0];
+        for (let state = 0; state < stats.length; state++) {
+            document.querySelector('#div-stats > .text' + STATUSES[state].replace('btn', '')).textContent = stats[state];
+        }
+        /*document.querySelector('#div-stats > .text-danger').textContent = stats[0];
         document.querySelector('#div-stats > .text-success').textContent = stats[1];
         document.querySelector('#div-stats > .text-info').textContent = stats[2];
+        document.querySelector('#div-stats > .text-secondary').textContent = stats[3];*/
     }
 
     function make_html_for_category(category) {
@@ -295,7 +301,7 @@
 
         let sectionsContainer = document.getElementById("sectionsContainer");
         sectionsContainer.textContent = "";
-        stats = [0, 0, 0];
+        stats = Array(STATUSES.length).fill(0);
 
         for (let category of categories) {
             let sectionContainer = make_html_for_category(category);

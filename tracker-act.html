@@ -122,7 +122,7 @@
 
                 span = document.createElement("span");
                 span.textContent = reverse_name[[suffix, id]] + " ";
-                span.textContent += (!+state ? "not completed" : (1 == +state ? "completed" : "to review"));
+                span.textContent += (!+state ? "not completed" : (1 == +state ? "completed" : (2 == +state ? "to review" : "skipped"));
                 span.classList += STATUSES[state].replace('btn', 'text');
                 el.append(span);
 

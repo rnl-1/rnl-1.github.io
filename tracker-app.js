@@ -12,7 +12,7 @@ registerServiceWorker();
 window.SUFFIX = location.search.replace('?', ''); //.toLowerCase();
 // à voir
 
-const STATUSES = ["btn-danger", "btn-success", "btn-info"];
+const STATUSES = ["btn-danger", "btn-success", "btn-info", "btn-secondary"];
 
 function get_categories() {
     let categories = [];

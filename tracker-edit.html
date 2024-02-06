@@ -106,7 +106,7 @@
                 } else return line;
             }).join('\n');
             let d = new Date;
-            let date_str = d.getFullYear() + "-" + (d.getMonth()+1).toString().padStart(2, "0") + "-" + d.getDate() + "_" + d.getHours() + "-" + d.getMinutes();
+            let date_str = d.getFullYear() + "-" + (d.getMonth()+1).toString().padStart(2, "0") + "-" + d.getDate() + "_" + d.getHours() + "-" + d.getMinutes() + "-" + d.getSeconds();
             download('ex-tracker' + (!SUFFIX ? "" : "-"+SUFFIX) + '_' + date_str + '.txt', improved);
         }
         window.SUFFIX = location.search.replace('?', '');

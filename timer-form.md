@@ -17,6 +17,16 @@ title: Timer ⏲️
 .btn-link:active {
 	background-color: #099;
 }
+.btn-link-orange {
+    background-color: orange;
+    box-shadow: 0px 0 10px orange;
+}
+.btn-link-orange:hover {
+    background-color: rgb(255, 184, 53);
+}
+.btn-link-orange:active {
+    background-color: rgb(225, 146, 0);
+}
 </style>
 
 <script>
@@ -45,9 +55,14 @@ addEventListener('load', function() {
 	bg_color.addEventListener('change', () => {
 		localStorage.color = bg_color.value;
 	});
+	let u = (+localStorage.time_begin) + (+localStorage.period)*1000;
+	if (!isNaN(u) && u > new Date().getTime()) {
+		document.getElementById('id-resume').style.display = 'initial';
+	}
 });
 </script>
 <noscript><span style="color: red">JavaScript required</span></noscript>
+<a id="id-resume" href="{{ '/timer' | relative_url }}" class="btn-link btn-link-orange" style="display: none">⏩ Resume timer</a>
 <form onsubmit="document.getElementById('start-btn').click()">
 <label for="timer-name">Timer name</label>
 <br/>
@@ -55,7 +70,7 @@ addEventListener('load', function() {
 <br/>
 <label for="timer-duration">Duration (hh:mm)</label>
 <br/>
-<input id="timer-duration" name="timer-duration" required pattern="[0-9]{1,2}:[0-9]{2}" value="2:00">
+<input id="timer-duration" name="timer-duration" required pattern="[0-9]{1,2}:[0-9]{1,2}" value="2:00">
 <input type="submit" style="display: none">
 <br/>
 <br/>
