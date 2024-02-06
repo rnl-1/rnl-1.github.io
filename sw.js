@@ -55,7 +55,7 @@ const fetchAndReturn = async (request) => {
 
 const cacheFirst = async ({ request, preloadResponsePromise }) => {
   // First try to get the resource from the cache
-  let rel_url = '.' + request.url.replace(self.location.toString().replace(/\/[^/]+$/, ''), '');
+  let rel_url = '.' + request.url.replace(/\?.*$/, '').replace(self.location.toString().replace(/\/[^/]+$/, ''), '');
   const responseFromCache = await caches.match(request, { ignoreSearch: true });
   //console.log(request.url);
   //self.location.replace(/\/+$/, '')
