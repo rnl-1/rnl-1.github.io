@@ -41,13 +41,14 @@ addEventListener('load', function() {
 			a.href = l[1];
 			a.textContent = l[0];
 			a.classList.add('btn-link');
+                        a.style.whiteSpace = 'nowrap';
 			list_cat.append(a);
 			list_cat.append(' ');
 		}
 	}
 });
 </script>
-<div id="list-categories">
+<div id="list-categories" style="line-height: 3em">
 <a class="btn-link" href="{{ '/tracker' | relative_url }}">Main</a>
 </div>
 <br/>
