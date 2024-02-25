@@ -168,7 +168,7 @@
             note.className = 'note user';
             const p = document.createElement('p');
             p.innerHTML = message.text; // html not filtered
-            p.innerHTML = p.innerHTML.replace(/\n/g, '<br/>');
+            p.innerHTML = p.innerHTML.replace(/\n/g, '<br/>\n');
             p.style.wordWrap = 'break-word';
             note.appendChild(p);
             note.innerHTML += '<p class="date">'+formatDate(new Date(message.date))+' </p>';
