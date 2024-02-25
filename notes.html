@@ -144,6 +144,7 @@
             }
         }
         async function notify(ev) {
+            ev.preventDefault();
             const note = ev.target.parentElement.parentElement;
             if (!("Notification" in window)) {
                 console.log("This browser does not support notifications.");
@@ -153,7 +154,12 @@
                 await Notification.requestPermission();
             }
             if (Notification.permission !== "granted") return;
-            const notification = new Notification("Notes", { body: note.children[0].textContent });
+            const registration = await navigator.serviceWorker.getRegistration()
+            if (registration) {
+                await registration.showNotification("Notes", { body: note.children[0].textContent });
+            } else {
+                new Notification("Notes", { body: note.children[0].textContent });
+            }
         }
         function showMessage(message) {
             const notesContainer = document.getElementById("notes-container");
@@ -180,6 +186,8 @@
             notesContainer.appendChild(note);
         }
         document.addEventListener("DOMContentLoaded", function() {
+            navigator.serviceWorker.register('sw.js', { scope: './' });
+
             // Load existing messages from localStorage
             window.savedMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
             //const notesContainer = document.getElementById("notes-container");
