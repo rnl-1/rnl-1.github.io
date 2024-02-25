@@ -82,6 +82,9 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        p.date > a {
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
@@ -110,28 +113,80 @@
             document.body.removeChild(element);
         }
         function exportData() {
-            let html = document.getElementById('notes-container').innerHTML + document.querySelector('style').outerHTML;
+            let tmp = document.getElementById('notes-container').cloneNode(true);
+            for (let k of tmp.querySelectorAll("a")) {
+                k.outerHTML = "";
+            }
+            let html = tmp.innerHTML + document.querySelector('style').outerHTML;
             let d = new Date;
             let date_str = d.getFullYear() + "-" + (d.getMonth()+1).toString().padStart(2, "0") + "-" + d.getDate() + "_" + d.getHours() + "-" + d.getMinutes() + "-" + d.getSeconds();
             download("notes_" + date_str + ".html", html);
         }
+        // Format date as "YYYY-MM-DD HH:mm:ss"
+        function formatDate(date) {
+            const options = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" };
+            return date.toLocaleString("en-US", options).replace(/\//g, "-").replace(/,/g, "");
+        }
+        function deleteMessage(ev) {
+            const notesContainer = document.getElementById("notes-container");
+            ev.preventDefault();
+            const note = ev.target.parentElement.parentElement;
+            if (confirm("Delete message ?")) {
+                let id = Array.from(notesContainer.children).indexOf(note);
+                if (JSON.stringify(savedMessages[id]) != note.getAttribute("data-message")) {
+                    alert("Could not delete message");
+                    return;
+                } else {
+                    savedMessages.splice(id, 1);
+                    localStorage.setItem("chatMessages", JSON.stringify(savedMessages));
+                    note.outerHTML = "";
+                }
+            }
+        }
+        async function notify(ev) {
+            const note = ev.target.parentElement.parentElement;
+            if (!("Notification" in window)) {
+                console.log("This browser does not support notifications.");
+                return;
+            }
+            if (Notification.permission !== "granted") {
+                await Notification.requestPermission();
+            }
+            if (Notification.permission !== "granted") return;
+            const notification = new Notification("Notes", { body: note.children[0].textContent });
+        }
+        function showMessage(message) {
+            const notesContainer = document.getElementById("notes-container");
+            const note = document.createElement("div");
+            note.setAttribute("data-message", JSON.stringify(message));
+            note.className = 'note user';
+            const p = document.createElement('p');
+            p.innerHTML = message.text; // html not filtered
+            p.innerHTML = p.innerHTML.replace(/\n/g, '<br/>');
+            p.style.wordWrap = 'break-word';
+            note.appendChild(p);
+            note.innerHTML += '<p class="date">'+formatDate(new Date(message.date))+' </p>';
+            const a1 = document.createElement("a");
+            a1.href = "#";
+            a1.setAttribute("onclick", "notify(event)");
+            a1.textContent = "🔔";
+            const a2 = document.createElement("a");
+            a2.href = "#";
+            a2.setAttribute("onclick", "deleteMessage(event)"); // try to optimize memory
+            a2.textContent = "🗑️";
+            note.children[note.children.length-1].append(a1);
+            note.children[note.children.length-1].append(" ");
+            note.children[note.children.length-1].append(a2);
+            notesContainer.appendChild(note);
+        }
         document.addEventListener("DOMContentLoaded", function() {
             // Load existing messages from localStorage
-            const savedMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
-            const notesContainer = document.getElementById("notes-container");
+            window.savedMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+            //const notesContainer = document.getElementById("notes-container");
 
             // Display existing messages
             savedMessages.forEach(message => {
-                const note = document.createElement("div");
-                note.className = `note user`;
-                const p = document.createElement('p');
-                p.innerHTML = message.text; // html not filtered
-                //p.textContent = message.text;
-                p.innerHTML = p.innerHTML.replace(/\n/g, '<br/>');
-                p.style.wordWrap = 'break-word';
-                note.appendChild(p);
-                note.innerHTML += `<p class="date">${formatDate(new Date(message.date))}</p>`;
-                notesContainer.appendChild(note);
+                showMessage(message);
             });
 
             // Save new message to localStorage and display in the chat
@@ -142,21 +197,14 @@
                 if (newMessage !== "") {
                     const currentDate = new Date();
 
+                    const message = { text: newMessage, date: currentDate.toISOString() };
                     // Save to localStorage
-                    savedMessages.push({ text: newMessage, date: currentDate.toISOString() });
+                    savedMessages.push(message);
                     localStorage.setItem("chatMessages", JSON.stringify(savedMessages));
 
                     // Display in the chat
-                    const note = document.createElement("div");
-                    note.className = "note user";
-                    const p = document.createElement('p');
-                    p.innerHTML = newMessage;
-                    //p.textContent = newMessage;
-                    p.innerHTML = p.innerHTML.replace(/\n/g, '<br/>');
-                    p.style.wordWrap = 'break-word';
-                    note.appendChild(p);
-                    note.innerHTML += `<p class="date">${formatDate(currentDate)}</p>`;
-                    notesContainer.appendChild(note);
+
+                    showMessage(message);
 
                     // Clear the input field
                     messageInput.value = "";
@@ -165,11 +213,6 @@
                 }
             });
 
-            // Format date as "YYYY-MM-DD HH:mm:ss"
-            function formatDate(date) {
-                const options = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" };
-                return date.toLocaleString("en-US", options).replace(/\//g, "-").replace(/,/g, "");
-            }
 
             document.getElementById('save-button').scrollIntoView();
         });
