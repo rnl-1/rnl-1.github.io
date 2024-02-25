@@ -19,6 +19,7 @@ const URLS = [
   './sw.js',
   './speedtest',
   './notes',
+  './notes-icon.png',
 ];
 
 const addResourcesToCache = async (resources) => {
