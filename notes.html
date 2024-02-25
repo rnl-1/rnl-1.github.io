@@ -125,7 +125,7 @@
         // Format date as "YYYY-MM-DD HH:mm:ss"
         function formatDate(date) {
             const options = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" };
-            return date.toLocaleString("en-US", options).replace(/\//g, "-").replace(/,/g, "");
+            return date.toLocaleString("fr-FR", options).replace(/\//g, "-").replace(/,/g, "");
         }
         function deleteMessage(ev) {
             const notesContainer = document.getElementById("notes-container");
