@@ -196,7 +196,7 @@ title: Chimie 🧪
         function formatSci(s) {
             s = s.split('e');
             if (s.length >= 2) {
-                s[1] = toSupString(s[1]);
+                s[1] = toSupString(s[1].replace(/\+/g, ''));
             }
             return s.join(" × 10");
         }
