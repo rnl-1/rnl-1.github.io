@@ -6,6 +6,7 @@ const URLS = [
   './tracker-edit',
   './tracker-act',
   './tracker-app.js',
+  './chimie.html',
   './export.html',
   './timer-form.html',
   './tracker-list.html',
