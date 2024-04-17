@@ -1,0 +1,370 @@
+---
+title: Chimie 🧪
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Résolution équilibre acide-base</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        #left-pane {
+            background-color: #f0f0f0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        #right-pane {
+            background-color: #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        textarea {
+            width: 100%;
+            resize: none;
+            font-size: 16px;
+        }
+        #divwarn {
+            color: #9b5500;
+            font-weight: bold;
+            background-color: #ffa80760;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        #diverror {
+            color: #bf0000;
+            font-weight: bold;
+            background-color: #ff000060;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        #divwarn::before {
+            content: "⚠️ ";
+            text-shadow: 0 0 10px red;
+        }
+        #diverror::before {
+            content: "❗ ";
+            text-shadow: 0 0 10px red;
+        }
+        #presults > div {
+            margin-bottom: 6px;
+        }
+        #presults > span {
+            font-size: 14px;
+        }
+        a {
+            color: blue;
+        }
+        @media screen and (min-width: 600px) {
+            #container {
+                display: flex;
+                height: 100vh;
+            }
+            #left-pane {
+                flex: 1;
+            }
+            #right-pane {
+                flex: 2;
+            }
+        }
+    </style>
+    <script>
+        addEventListener('DOMContentLoaded', () => {
+            for (let ta of document.getElementsByTagName("textarea")) {
+                let f = () => {
+                    ta.style.height = "auto";
+                    ta.style.height = ta.scrollHeight + "px";
+                    ta.style.overflowY = 'hidden';
+                }
+                f();
+                ta.addEventListener('input', f);
+            }
+            if (localStorage.concentrations !== undefined) {
+                document.getElementById("taconcentrations").value = localStorage.concentrations;
+            }
+            if (localStorage.couplesAcideBase !== undefined) {
+                document.getElementById("tacouples").value = localStorage.couplesAcideBase;
+            }
+            calculate();
+            console.info("simulation results are accessible with `results` global variable");
+            
+            if (location.hash.length >= 7) {
+                loadFromHash(location.hash);
+            }
+            addEventListener('hashchange', () => {
+                if (location.hash.length >= 7) {
+                    loadFromHash(location.hash);
+                }
+            });
+            addEventListener('beforeunload', () => {
+                if (modified) {
+                    localStorage.concentrations = document.getElementById("taconcentrations").value;
+                    localStorage.couplesAcideBase = document.getElementById("tacouples").value;
+                }
+            });
+        });
+        
+        function calcCharge(s) {
+            return (s.match(/\+/g) || []).length - (s.match(/\-/g) || []).length;
+        }
+        function f(h3o, concentrations, t) {
+            const co = {};
+            let totalCharge = 0;
+            for (let c of t) {
+                const [formes, lpKa] = c;
+                let tmp = 1;
+                for (let i = lpKa.length-1; i >= 0; i--) {
+                    tmp *= lpKa[i] / h3o;
+                    tmp++;
+                }
+                const sum = formes.map(u => concentrations[u] || 0).reduce((u, v) => u + v);
+                let x = sum / tmp;
+                // tmp >= 1
+                for (let i = 0; i < formes.length; i++) {
+                    co[formes[i]] = x;
+                    totalCharge += calcCharge(formes[i]) * x;
+                    x *= lpKa[i] / h3o;
+                }
+            }
+            co["H3O+"] = h3o;
+            totalCharge += h3o;
+            const ho = 10**-14 / h3o;
+            co["HO-"] = ho;
+            totalCharge -= ho;
+            return [totalCharge, co];
+        }
+        function warn(text) {
+            const d = document.getElementById("divwarn");
+            if (text === null) {
+                d.style.display = "none";
+                d.textContent = "";
+            } else {
+                d.style.display = "block";
+                if (d.textContent != "") {
+                    d.appendChild(document.createElement('br'));
+                }
+                d.append(text);
+            }
+        }
+        function error(text) {
+            const d = document.getElementById("diverror");
+            if (text === null) {
+                d.style.display = "none";
+                d.textContent = "";
+            } else {
+                d.style.display = "block";
+                if (d.textContent != "") {
+                    d.appendChild(document.createElement('br'));
+                }
+                d.append(text);
+            }
+        }
+        function toSubString(s) {
+            for (let i = 0; i < 10; i++) {
+                s = s.replace(new RegExp(i, 'g'), String.fromCharCode(8320 + i));
+            }
+            s = s.replace(/\+/g, '⁺');
+            return s;
+        }
+        function toSupString(s) {
+            s = s.replace(/1/g, "¹");
+            for (let i = 0; i < 10; i++) {
+                s = s.replace(new RegExp(i, 'g'), String.fromCharCode((2 <= i && i <= 3 ? 176 : 8304) + i));
+            }
+            s = s.replace(/\-/g, '⁻');
+            return s;
+        }
+        function formatEspece(s) {
+            s = toSubString(s);
+            const charge = calcCharge(s);
+            s = s.replace(/[+-]/g, '');
+            if (charge > 0) {
+                if (charge != 1) s += toSupString("" + charge);
+                s += '⁺';
+            } else if (charge < 0) {
+                if (charge != -1) s += toSupString("" + -charge);
+                s += '⁻';
+            }
+            return s;
+        }
+        function formatSci(s) {
+            s = s.split('e');
+            if (s.length >= 2) {
+                s[1] = toSupString(s[1]);
+            }
+            return s.join(" × 10");
+        }
+        function calculate() {
+            warn(null);
+            error(null);
+            let couples = [];
+            let concentrations = {};
+            let elementsCouple = {};
+            for (let line of document.getElementById("tacouples").value.trim().split("\n")) {
+                line = line.trim();
+                if (line !== "") {
+                    let s = line.split(" ");
+                    let [acide, base, pKa] = s;
+                    if (!isFinite(+pKa)) {
+                        error("pKa invalide : " + pKa);
+                        continue;
+                    }
+                    if (calcCharge(acide)-calcCharge(base) != 1) {
+                        error("L'acide " + acide + " n'a pas une charge de plus que la base " + base);
+                    }
+                    pKa = +pKa;
+                    elementsCouple[acide] = null;
+                    elementsCouple[base] = null;
+                    couples.push([acide, base, 10**-pKa])
+                }
+            }
+            let reactifNotCouple = {};
+            let totalCharge = 0;
+            for (let line of document.getElementById("taconcentrations").value.trim().split("\n")) {
+                line = line.trim();
+                if (line !== "") {
+                    let s = line.split(' ');
+                    let reactif = s[0];
+                    let concentration = +s[1];
+                    if (!isFinite(concentration)) {
+                        error("Concentration invalide : " + s[1]);
+                        continue;
+                    }
+                    if (!(reactif in elementsCouple)) {
+                        reactifNotCouple[reactif] = null;
+                    }
+                    concentrations[reactif] ||= 0;
+                    concentrations[reactif] += concentration;
+                    totalCharge += calcCharge(reactif) * concentration;
+                }
+            }
+            if (Object.keys(reactifNotCouple).length) {
+                warn("Données de couples acide-base manquantes pour " + Object.keys(reactifNotCouple).join(", "));
+            }
+            if (Math.abs(totalCharge) > 1e-16) {
+                warn("La solution n'est pas électriquement neutre : " + totalCharge);
+            }
+            let list = [];
+            let d = {}
+            for (let c of couples) {
+                d[c[0]] = c;
+            }
+            let r = {};
+            for (let c of couples) {
+                let formes = [c[0], c[1]];
+                let lpKa = [c[2]];
+                let u = c[1];
+                while (u in d) {
+                    formes.push(d[u][1]);
+                    lpKa.push(d[u][2]);
+                    u = d[u][1];
+                }
+                if (formes.length > (r[formes[formes.length-1]] || [[]])[0].length) {
+                    r[formes[formes.length-1]] = [formes, lpKa];
+                }
+            }
+            let t = Object.values(r);
+            // on voit que f tend vers -inf en 0 et +inf en +inf
+
+            let a = 0, b = 1;
+            let timeout = 1e4;
+            while (f(b, concentrations, t)[0] < 0) {
+                b *= 2;
+                timeout--;
+                if (!timeout) {
+                    error("error : timeout 1");
+                    return;
+                }
+            }
+            while ((b-a) / b > 1e-8) { // précision relative sur b
+                let c = (a + b) / 2;
+                if (f(c, concentrations, t)[0] > 0) {
+                    b = c;
+                } else {
+                    a = c;
+                }
+                timeout--;
+                if (!timeout) {
+                    error("error : timeout 2");
+                    return;
+                }
+            }
+            let c = f(a, concentrations, t)[1];
+            window.results = c;
+            const p = document.getElementById('presults');
+            p.textContent = "";
+            const pH = -Math.log10(c["H3O+"]);
+            let div = document.createElement('div');
+            const i = document.createElement('i');
+            i.textContent = 'H';
+            div.append("p");
+            div.append(i);
+            div.append(" : " + pH.toFixed(4));
+            p.append(div);
+            div.append(document.createElement('br'));
+            div.append(document.createElement('br'));
+            let m = document.createElement('span');
+            m.textContent = "Concentrations :";
+            p.append(m);
+            for (let s in c) {
+                if (c[s] !== 0) {
+                    let div = document.createElement('div');
+                    div.textContent = "" + formatEspece(s) + " : " + formatSci(c[s].toExponential(6)) + " mol/L";
+                    p.append(div);
+                }
+            }
+        }
+        function copyLink() {
+            window.skipLoadHash = true;
+            location.hash = btoa(JSON.stringify([document.getElementById("taconcentrations").value, document.getElementById("tacouples").value]));
+            console.info(location.href);
+            navigator.clipboard.writeText(location.href);
+        }
+        function loadFromHash(hash) {
+            if (window.skipLoadHash) {
+                window.skipLoadHash = false;
+                return;
+            }
+            let [a, b] = JSON.parse(atob(hash.replace(/^#/, '')));
+            document.getElementById("taconcentrations").value = a;
+            document.getElementById("tacouples").value = b;
+            calculate();
+        }
+    </script>
+</head>
+<body>
+    <div id="container">
+        <div id="left-pane">
+            <h1>Résolution équilibre acide-base</h1>
+            <h2>Concentrations initiales</h2>
+            <textarea id="taconcentrations" oninput="if (location.hash) location.hash = ''; window.modified = true; calculate()" rows="1">NH3 0.1</textarea>
+            Format : pour chaque ligne, le réactif et la concentration (en mol/L) séparés par un espace; utiliser <tt>e</tt> pour la notation scientifique; pour les ions ayant plusieurs charges, noter avec plusieurs signes <tt>+</tt> ou <tt>-</tt>, exemple : <tt>SO4--</tt> pour SO<sub>4</sub><sup>2-</sup>
+
+            <h2>Couples acide-base</h2>
+            <textarea id="tacouples" oninput="if (location.hash) location.hash = ''; window.modified = true; calculate()" rows="1">NH4+ NH3 9.2
+HCl Cl- -6.3
+H3PO4 H2PO4- 2.1
+H2PO4- HPO4-- 7.2
+HPO4-- PO4--- 12.3
+HNO2 NO2- 3.4
+H2S HS- 7
+HS- S-- 13
+Na+ NaOH 14.8</textarea>
+            Format : pour chaque ligne, acide base p<i>K<sub>a</sub></i>
+        </div>
+        <div id="right-pane">
+            <h2>Résultats</h2>
+            <div id="divwarn"></div>
+            <div id="diverror"></div>
+            <p id="presults"></p>
+            <a href="#" onclick="event.preventDefault(); copyLink()">Copier le lien</a>
+        </div>
+    </div>
+</body>
+</html>
