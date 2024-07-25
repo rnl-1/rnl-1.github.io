@@ -21,6 +21,8 @@ const URLS = [
   './speedtest',
   './notes',
   './notes-icon.png',
+  './yt',
+  './tree.html',
 ];
 
 const addResourcesToCache = async (resources) => {

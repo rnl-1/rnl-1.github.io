@@ -12,6 +12,7 @@ feed:
 
 header_pages:
   - index.html
+  - tree.html
   - chimie.html
   - timer-form.md
   - tracker-list.md

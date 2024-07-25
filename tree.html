@@ -1,0 +1,720 @@
+---
+title: Arbres 🌳
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualiseur d'arbre</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            /*display: flex;*/
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 10px 0;
+            text-align: center;
+            width: 100%;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 10px;
+            box-sizing: border-box;
+            width: 240px;
+            background-color: #f0f0f0;
+            overflow-y: auto;
+        }
+        textarea {
+            width: 100%;
+            height: 30%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        .text-output {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            /*background-color: #fff;
+            border: 1px solid #ccc;*/
+            flex: 1;
+            margin-top: 10px;
+            overflow-y: auto;
+        }
+        .svg-container {
+            width: calc(100% - 240px);
+            height: 100%;
+            user-select: none;
+            text-align: center;
+        }
+        .text-error {
+            color: darkred;
+            font-weight: bold;
+        }
+        svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        @media screen and (max-width: 600px) {
+            body {
+                overflow: auto;
+            }
+            .container {
+                flex-direction: column;
+                height: initial;
+                width: initial;
+            }
+            .left-panel {
+                width: initial;
+                height: 30%;
+            }
+            .svg-container {
+                width: initial;
+                height: 70%;
+            }
+        }
+        label {
+            margin: 10px 0;
+            display: block;
+        }
+    </style>
+    <script>
+    let SEED = localStorage.tv_seed || 6;
+    let K = 800; // constante répulsion
+    let K_PAROIS = 1000;
+    let L = .01*3; // constante ressort
+    let l0 = 40; // longueur à vide
+    let COEF_FROTT = 0/*.9*/; // coefficient conservation vitesse
+    let RADIUS = -1; // 10
+    let NODE_FONT_SIZE = -1; // 5
+    let DELAY = 20;
+    
+    const ALLOWED_FIRST_LETTER_NAME = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" + "ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜàáâãäåèéêëìíîïòóôõöùúûü" + "_";
+    const ALLOWED_NAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜàáâãäåèéêëìíîïòóôõöùúûü" + "_";
+    const DIGITS = "0123456789";
+    let lnodes = [], ladj = [];
+    let selectedNodesId = -1;
+    let AUTO_MOVE = false;
+    let modified = false;
+    let velocities = [];
+    let ids_enabled = false;
+    
+    let svg;
+    function incr(pos) {
+        pos[0]++;
+    }
+    function eatSpaces(newText, pos) {
+        while (" \n\t".indexOf(newText[pos[0]]) !== -1) {
+            incr(pos);
+        }
+    }
+    function getFirstChar(newText, pos) {
+        eatSpaces(newText, pos);
+        return newText[pos[0]];
+    }
+    function consumeChar(newText, pos, charSet, allowSpaces = true) {
+        if (allowSpaces) {
+            eatSpaces(newText, pos);
+        }
+        const c = newText[pos[0]];
+        if (charSet.indexOf(c) !== -1) {
+            incr(pos);
+            return c;
+        } else {
+            return null;
+        }
+    }
+    function parseName(newText, pos) {
+        if (name = consumeChar(newText, pos, ALLOWED_NAME_CHARACTERS, true)) {
+            while (char = consumeChar(newText, pos, ALLOWED_NAME_CHARACTERS, false)) {
+                name += char;
+            }
+            return name;
+        } else {
+            throw SyntaxError("Expected name, got " + newText[pos[0]] + " pos=" + pos[0]);
+        }
+    }
+    function parseExpr(newText, pos, optional = true) {
+        if (consumeChar(newText, pos, "(")) {
+            let obj = parseExpr(newText, pos);
+            if (!consumeChar(newText, pos, ")")) {
+                throw SyntaxError("Expected \")\", got " + newText[pos[0]]);
+            }
+            return obj;
+        }
+        if (consumeChar(newText, pos, "[")) {
+            let l = [null];
+            while (!consumeChar(newText, pos, "]")) { // condition sert uniquement si liste vide
+                l.push(parseExpr(newText, pos));
+                if (consumeChar(newText, pos, ";")) {
+                    continue;
+                } else if (consumeChar(newText, pos, "]")) {
+                    break;
+                } else {
+                    throw SyntaxError("Expected \";\" or \"]\", got " + newText[pos[0]]);
+                }
+            }
+            return l;
+        }
+        if (ALLOWED_NAME_CHARACTERS.indexOf(newText[pos[0]]) === -1 && optional) {
+            return null;
+        }
+        const name = parseName(newText, pos);
+        if (ALLOWED_FIRST_LETTER_NAME.indexOf(name[0]) !== -1) { // c'est bien un nom
+            let l = [name];
+            if (consumeChar(newText, pos, "(")) {
+                while (!consumeChar(newText, pos, ")")) {
+                    const sub = parseExpr(newText, pos);
+                    if (sub instanceof Array && sub[0] === null) { // si c'est en fait une liste
+                        l = l.concat(sub.slice(1));
+                    } else {
+                        l.push(sub);
+                    }
+                    if (consumeChar(newText, pos, ",")) {
+                        continue;
+                    } else if (consumeChar(newText, pos, ")")) {
+                        break;
+                    } else {
+                        throw SyntaxError("Expected \",\" or \")\", got " + newText[pos[0]]);
+                    }
+                }
+            } else {
+                const arg1 = parseExpr(newText, pos, true);
+                if (arg1 !== null) {
+                    if (arg1 instanceof Array && arg1[0] === null) {
+                        l = l.concat(arg1.slice(1));
+                    } else {
+                        l.push(arg1);
+                    }
+                }
+            }
+            return l;
+        } else {
+            return name;
+        }
+    }
+    function getCountNodes(obj) {
+        if (obj instanceof Array) {
+            let countNodes = {};
+            if (obj[0] !== null) {
+                countNodes[obj[0]] = 1;
+            }
+            for (let sub of obj.slice(1)) {
+                let subCount = getCountNodes(sub);
+                for (let key of Object.keys(subCount)) {
+                    if (!countNodes[key]) {
+                        countNodes[key] = 0;
+                    }
+                    countNodes[key] += subCount[key];
+                }
+            }
+            return countNodes;
+        } else {
+            return {};
+        }
+    }
+    function getHeight(obj) {
+        if (obj instanceof Array) {
+            let height = 0;
+            for (let sub of obj.slice(1)) {
+                height = Math.max(height, 1 + getHeight(sub));
+            }
+            if (obj[0] === null) height--;
+            return height;
+        } else {
+            return -1;
+        }
+    }
+    function powmod(a, n, m) {
+        if (n === 0) return 1;
+        else {
+            let p = powmod(a, Math.floor(n/2), m);
+            return (n % 2 == 0 ? p*p : p*p*a) % m;
+        }
+    }
+    function generateColor(str) {
+        if (str === null) { str = ""; }
+        let u = 0;
+        for (let c of str) {
+            u += c.charCodeAt(0);
+            u *= 5;
+            u %= 358;
+        }
+        const choice = powmod(SEED, u, 359);
+        return `hsl(${choice} 80% 50%)`;
+    }
+    function onNodeMouseDown(event, idNode) {
+        selectedNodesId = idNode;
+        document.onmousemove = onNodeMouseMove;
+        document.onmouseup = onNodeMouseUp;
+        velocities[idNode][0] = 0;
+        velocities[idNode][1] = 0;
+    }
+    function createAnimateTag(attr, from, to) {
+        const animate = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+        animate.setAttribute("attributeName", attr);
+        animate.setAttribute("begin", "indefinite");
+        animate.setAttribute("dur", ".2s");
+        animate.setAttribute("from", from);
+        animate.setAttribute("to", to);
+        animate.setAttribute("fill", "freeze");
+        return animate;
+    }
+    function moveNodeToPosition(nodeId, newx, newy) {
+        const xmin = svg.viewBox.baseVal.x + RADIUS, ymin = svg.viewBox.baseVal.y + RADIUS;
+        const xmax = xmin + svg.viewBox.baseVal.width - 2*RADIUS, ymax = ymin + svg.viewBox.baseVal.height - 2*RADIUS;
+        newx = Math.max(Math.min(newx, xmax), xmin);
+        newy = Math.max(Math.min(newy, ymax), ymin);
+        
+        const [oldx, oldy] = getNodePosition(nodeId);
+        let k = 0;
+        for (let element of lnodes[nodeId]) {
+            const prefix = element.tagName === "circle" ? "c" : "";
+            element.setAttribute(prefix+"x", newx);
+            element.setAttribute(prefix+"y", newy + (k == 2 ? 3 : 0));
+            k++;
+        }
+        k = 0;
+        for (let [side, line] of ladj[nodeId]) {
+            const suffix = side ? "2" : "1";
+            line.setAttribute("x"+suffix, newx);
+            line.setAttribute("y"+suffix, newy);
+            k++;
+        }
+    }
+    function getNodePosition(nodeId) {
+        const tmp = lnodes[nodeId][0];
+        return [(tmp.x || tmp.cx).baseVal.value, (tmp.y || tmp.cy).baseVal.value];
+    }
+    function onNodeMouseMove(event) {
+        const coords = svg.getBoundingClientRect();
+
+        const newx = ((event.clientX - coords.x) / coords.width * svg.viewBox.baseVal.width);
+        const newy = ((event.clientY - coords.y) / coords.height * svg.viewBox.baseVal.height);
+
+        moveNodeToPosition(selectedNodesId, newx, newy);
+    }
+    function onNodeMouseUp(event) {
+        selectedNodesId = -1;
+        document.onmousemove = null;
+        document.onmouseup = null;
+    }
+    function createEdge(id1, id2, automatic = false, ressortSize = undefined) {
+        const [x1, y1] = getNodePosition(id1);
+        const [x2, y2] = getNodePosition(id2);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", "black");
+        line.setAttribute("stroke-width", 1);
+        line.automatic = automatic;
+        line.ressortSize = ressortSize || l0; 
+        ladj[id1].push([false, line]);
+        ladj[id2].push([true, line]);
+        svg.insertBefore(line, svg.firstChild);
+    }
+    function drawAllIds() {
+        for (let id = 0; id < lnodes.length; id++) {
+            const [x, y] = getNodePosition(id);
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", x);
+            text.setAttribute("y", y+3);
+            text.setAttribute("fill", "white");
+            text.setAttribute("dominant-baseline", "middle");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", NODE_FONT_SIZE);
+            text.textContent = id;
+            text.style.cursor = "grabbing";
+            text.setAttribute("onmousedown", `onNodeMouseDown(event, ${id})`);
+            text.style.fontWeight = "bold";
+            svg.append(text);
+            lnodes[id].push(text);
+        }
+    }
+    function hideAllIds() {
+        for (let id = 0; id < lnodes.length; id++) {
+            if (lnodes[id].length == 3) {
+                lnodes[id][2].outerHTML = "";
+                lnodes[id].pop();
+            }
+        }
+    }
+    function toggleShowIds() {
+        if (!ids_enabled) {
+            drawAllIds();
+            ids_enabled = true;
+        } else {
+            hideAllIds();
+            ids_enabled = false;
+        }
+    }
+    function createCustomNode(label, type, x = undefined, y = undefined) {
+        if (!x) {
+            x = Math.random()*svg.viewBox.baseVal.width;
+        }
+        if (!y) {
+            y = Math.random()*svg.viewBox.baseVal.height;
+        }
+        let nodeId = lnodes.length;
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", RADIUS);
+        let color = generateColor(type)
+        circle.setAttribute("fill", color);
+        circle.setAttribute("stroke", "black");
+        circle.setAttribute("stroke-width", 1);
+        circle.style.cursor = "grabbing";
+        circle.setAttribute("onmousedown", `onNodeMouseDown(event, ${nodeId})`);
+        svg.append(circle);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x);
+        text.setAttribute("y", y);
+        text.setAttribute("fill", "black");
+        text.setAttribute("dominant-baseline", "middle");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-size", NODE_FONT_SIZE);
+        text.textContent = label;
+        text.style.cursor = "grabbing";
+        text.setAttribute("onmousedown", `onNodeMouseDown(event, ${nodeId})`);
+        text.style.fontWeight = "bold";
+        svg.append(text);
+        
+        lnodes.push([circle, text]);
+        ladj.push([]);
+        velocities.push([0,0]);
+        return nodeId;
+    }
+    function drawObject(obj, level, xmin, xmax, level_size, lnodes/*, dlines*/, ladj) {
+        if (!(obj instanceof Array)) {
+            return;
+        }
+        
+        const x = ((xmin + xmax) / 2);
+        const y = ((level + .5) * level_size);
+        
+        let nodeId;
+        if (level >= 0) {
+            let s = obj.slice(1).filter(u => !(u instanceof Array)).join(" ");
+            if (s.trim() === "") {
+                s = obj[0];
+            }
+
+            nodeId = lnodes.length;
+
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", x);
+            circle.setAttribute("cy", y);
+            circle.setAttribute("r", RADIUS);
+            let color = generateColor(obj[0])
+            circle.setAttribute("fill", color);
+            circle.setAttribute("stroke", level === 0 ? "#777" : "black");
+            circle.setAttribute("stroke-width", 1);
+            circle.style.cursor = "grabbing";
+            circle.setAttribute("onmousedown", `onNodeMouseDown(event, ${nodeId})`);
+            svg.append(circle);
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", x);
+            text.setAttribute("y", y);
+            text.setAttribute("fill", "black");
+            text.setAttribute("dominant-baseline", "middle");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", NODE_FONT_SIZE);
+            text.textContent = s;
+            text.style.cursor = "grabbing";
+            text.setAttribute("onmousedown", `onNodeMouseDown(event, ${nodeId})`);
+            text.style.fontWeight = "bold";
+            svg.append(text);
+
+            lnodes.push([circle, text]);
+            ladj.push([]);
+        }
+        
+        const childrens = obj.slice(1).filter(u => u instanceof Array);
+        let k = 0;
+        for (let sub of childrens) {
+            const w = (xmax - xmin) / childrens.length;
+            const [subx, suby, subId] = drawObject(sub, level + 1, xmin + w * k, xmin + w * (k+1), level_size, lnodes/*, dlines*/, ladj);
+            if (level >= 0) {
+                createEdge(nodeId, subId, true);
+            }
+            k++;
+        }
+
+        return [x, y, level >= 0 ? nodeId : null];
+    }
+    function onInputChanged(newText) {
+        if (newText === "") {
+            return;
+        }
+        enable_ids = false;
+        const div = document.getElementById("tree_info");
+        try {
+            const pos = [0];
+            let obj = parseExpr(newText, pos);
+            eatSpaces(newText, pos);
+            if (newText[pos[0]] !== undefined) {
+                throw SyntaxError("Expected EOF, got " + newText[pos[0]]);
+            }
+
+            div.innerHTML = "";
+            const countNodes = getCountNodes(obj);
+            const height = getHeight(obj);
+            if (Object.keys(countNodes)) {
+                div.append(document.createTextNode("Nombres de nœuds :"));
+                div.append(document.createElement("br"));
+                for (let key of Object.keys(countNodes)) {
+                    const span = document.createElement("span");
+                    span.textContent = key + " : " + countNodes[key];
+                    span.style.color = generateColor(key);
+                    span.style.fontWeight = "bold";
+                    div.append(span);
+                    div.append(document.createElement("br"));
+                }
+                div.append(document.createElement("br"));
+            }
+            div.append(document.createTextNode("Hauteur de l'arbre : " + height));
+            
+            
+            
+            if (RADIUS === -1) {
+                const area = svg.viewBox.baseVal.height*svg.viewBox.baseVal.width;
+                RADIUS = .00009*area;
+            }
+            if (NODE_FONT_SIZE === -1) {
+                NODE_FONT_SIZE = RADIUS / 2;
+            }
+            svg.innerHTML = "";
+            const level_size = svg.viewBox.baseVal.height / (height + 1);
+            lnodes = [];
+            ladj = [];
+            const is_list = obj instanceof Array && obj[0] === null;
+            drawObject(obj, is_list ? -1 : 0, svg.viewBox.baseVal.x, svg.viewBox.baseVal.x + svg.viewBox.baseVal.width, level_size, lnodes/*, dlines*/, ladj);
+            div.classList.remove("text-error");
+            
+            velocities = Array.from(Array(lnodes.length), () => [0, 0]);;
+        } catch (err) {
+            if (err instanceof SyntaxError) {
+                div.textContent = "SyntaxError : " + err.message;
+                div.classList.add("text-error");
+            } else {
+                throw err; // autre erreur -> on la propage
+            }
+        }
+    }
+    function updateSeed() {
+        const newSeed = prompt("Entrer un nombre entre 2 et 358 pour la génération des couleurs.", SEED);
+        if (newSeed === null) return;
+        if (2 <= +newSeed && +newSeed <= 358) {
+            SEED = +newSeed;
+            localStorage.tv_seed = SEED;
+            onInputChanged(document.getElementById("tree_input").value);
+        } else {
+            alert("Nombre invalide");
+        }
+    }
+    function onResize() {
+        const svgContainer = document.querySelector(".svg-container");
+        const width = 400;
+        const coords = svgContainer.getBoundingClientRect();
+        const height = Math.round(coords.height / coords.width * width);
+        svg.viewBox.baseVal.width = width;
+        svg.viewBox.baseVal.height = height;
+    }
+    function calcForces(nodeId) {
+        let [x, y] = getNodePosition(nodeId);
+        let forceX = 0, forceY = 0;
+        for (let id = 0; id < lnodes.length; id++) {
+            if (id != nodeId) {
+                let [dx, dy] = getNodePosition(id);
+                dx -= x;
+                dy -= y;
+                let d = Math.sqrt(dx**2+dy**2);
+                if (d != 0) {
+                    dx /= d**3;
+                    dy /= d**3;
+                    forceX -= dx * K;
+                    forceY -= dy * K;
+                }
+            }
+        }
+        let k = 0;
+        for (let [side, line] of ladj[nodeId]) {
+            let dx = line.getAttribute("x1")-line.getAttribute("x2");
+            let dy = line.getAttribute("y1")-line.getAttribute("y2");
+            if (side) {
+                dx *= -1;
+                dy *= -1;
+            }
+            let l = Math.sqrt(dx**2 +dy**2);
+            let l0 = line.ressortSize;
+            dx *= -(l-l0)/l;
+            dy *= -(l-l0)/l;
+            forceX += dx * L;
+            forceY += dy * L;
+            k++;
+        }
+        const width = svg.viewBox.baseVal.width;
+        const height = svg.viewBox.baseVal.height;
+        
+        forceX += 1 / (x**2)*K_PAROIS;
+        forceY += 1 / (y**2)*K_PAROIS;
+        forceX += -1 / ((width-x)**2)*K_PAROIS;
+        forceY += -1 / ((height-y)**2)*K_PAROIS;
+        
+        return [forceX, forceY];
+    }
+    function absmin(a, b) {
+        if (!isFinite(a)) return 0;
+        if (a > 0) return Math.min(a, b);
+        else return Math.max(a, -b);
+    }
+    function sleep(millis) {
+        return new Promise(u => setTimeout(u, millis));
+    }
+    async function finishplayForces() {
+        AUTO_MOVE = false;
+        document.getElementById("bplayForces").textContent = "Étaler l'arbre";
+        document.getElementById("bplayForces").setAttribute("onclick", "playForces()");
+        document.getElementById("bRandomMove").style.display = "none";
+    }
+    let ENABLE_VELOCITY = true;
+    async function playForces() {
+        AUTO_MOVE = true;
+        document.getElementById("bplayForces").textContent = "Arrêter l'étalement";
+        document.getElementById("bplayForces").setAttribute("onclick", "finishplayForces()");
+        document.getElementById("bRandomMove").style.display = "initial";
+        velocities = Array.from(Array(lnodes.length), () => [0, 0]);
+        while (true) {
+            let lnewpos = Array(lnodes.length); 
+            for (let id = 0; id < lnodes.length; id++) {
+                if (!AUTO_MOVE) return;
+                if (id === selectedNodesId) continue;
+                let [x, y] = getNodePosition(id);
+                
+                const [fx, fy] = calcForces(id);
+
+                x += absmin(fx, 80);
+                y += absmin(fy, 80);
+                if (!ENABLE_VELOCITY) {
+                    velocities[id][0] = velocities[id][1] = 0;
+                }
+                velocities[id][0] += fx;
+                velocities[id][1] += fy;
+                for (let k = 0; k < 2; k++) velocities[id][k] = absmin(velocities[id][k], 80);
+                
+                x += velocities[id][0];
+                y += velocities[id][1];
+                
+                lnewpos[id] = [x, y];
+
+                velocities[id][0] *= COEF_FROTT;
+                velocities[id][1] *= COEF_FROTT;
+            }
+            for (let id = 0; id < lnodes.length; id++) {
+                if (lnewpos[id]) {
+                    moveNodeToPosition(id, ...lnewpos[id]);
+                }
+            }
+            await sleep(DELAY);
+        }
+    }
+    function updateAdditionalEdges(newText) {
+        let list = newText.trim().split("\n").filter(u => u.trim()).map(u => u.trim().split(" "));
+        for (let id = 0; id < lnodes.length; id++) {
+            ladj[id] = ladj[id].filter(([side, line]) => {
+                if (!line.automatic) {
+                    line.outerHTML = "";
+                    return false;
+                }
+                return true;
+            });
+        }
+        for (let [u, v, w] of list) {
+            u = +u;
+            v = +v;
+            if (0 <= u && u < lnodes.length && 0 <= v && v < lnodes.length) {
+                createEdge(u, v, false, w);
+            }
+        }
+    }
+    function randomMove() {
+        for (let id = 0; id < lnodes.length; id++) {
+            velocities[id][0] += (Math.random()-.5)*50;
+            velocities[id][1] += (Math.random()-.5)*50;
+        }
+    }
+    function copyLink() {
+        const url = location.href.replace(/#.*/, "") + "#" + btoa(JSON.stringify([document.getElementById("tree_input").value,document.getElementById("additionalEdges").value]));
+        navigator.clipboard.writeText(url);
+        alert("Lien copié au presse-papier !");
+    }
+    function updateParam(element) {
+        element.id.substring(1);
+    }
+    addEventListener("load", () => {
+        svg = document.querySelector("svg");
+        onResize();
+        if (!document.getElementById("tree_input").value && localStorage.tv_tree) {
+            document.getElementById("tree_input").value = localStorage.tv_tree;
+        }
+        if (!document.getElementById("additionalEdges").value && localStorage.tv_addedges) {
+            document.getElementById("additionalEdges").value = localStorage.tv_addedges;
+        }
+        if (location.hash.length >= 3) {
+            const [a, b] = JSON.parse(atob(location.hash.replace("#", "")));
+            document.getElementById("tree_input").value = a;
+            document.getElementById("additionalEdges").value = b;
+        }
+        onInputChanged(document.getElementById("tree_input").value);
+        updateAdditionalEdges(document.getElementById("additionalEdges").value);
+    });
+    addEventListener("beforeunload", () => {
+        if (modified) {
+            localStorage.tv_tree = document.getElementById("tree_input").value;
+            localStorage.tv_addedges = document.getElementById("additionalEdges").value;
+            return true;
+        }
+    });
+    addEventListener("resize", onResize);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h1>Visualiseur d'arbre <a href="#" onclick="event.preventDefault(); updateSeed()" style="text-decoration: none">⚙️</a> <a href="#" onclick="event.preventDefault(); copyLink()" style="text-decoration: none">🔗</a></h1>
+            <textarea id="tree_input" placeholder="Entrer ici la représentation d'un objet de type récursif OCaml; entrer une liste d'arbre (en notation OCaml) afin d'en afficher plusieurs" oninput="modified = true; onInputChanged(this.value)"></textarea>
+            <div class="text-output">
+                Arêtes supplémentaires <a href="#" style="text-decoration: none" onclick="event.preventDefault(); toggleShowIds()">🆔</a>
+                <textarea id="additionalEdges" placeholder="0 1
+3 4" oninput="modified = true; updateAdditionalEdges(this.value)"></textarea>
+				<div id="tree_info"></div>
+            </div>
+            <div style="text-align: center; width: 100%">
+                <button id="bplayForces" onclick="playForces()" style="cursor: pointer">Étaler l'arbre</button>
+                <button id="bRandomMove" onclick="randomMove()" style="cursor: pointer; display: none">Secouer</button>
+            </div>
+        </div>
+        <div class="svg-container">
+        <svg viewBox="0 0 400 200"></svg>
+        </div>
+    </div>
+</body>
+</html>
