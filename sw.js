@@ -23,6 +23,7 @@ const URLS = [
   './notes-icon.png',
   './yt',
   './tree.html',
+  './blackscreen',
 ];
 
 const addResourcesToCache = async (resources) => {
